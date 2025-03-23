@@ -1709,6 +1709,7 @@
 /none/tests/amd64/fma
 /none/tests/amd64/fxtract
 /none/tests/amd64/getseg
+/none/tests/amd64/insertq
 /none/tests/amd64/insn_basic
 /none/tests/amd64/insn_basic.c
 /none/tests/amd64/insn_fpu
@@ -1749,6 +1750,7 @@
 /none/tests/amd64/slahf-amd64
 /none/tests/amd64/smc1
 /none/tests/amd64/sse4-64
+/none/tests/amd64/sse4a-64
 /none/tests/amd64/ssse3_misaligned
 /none/tests/amd64/tm1
 /none/tests/amd64/x87trigOOR

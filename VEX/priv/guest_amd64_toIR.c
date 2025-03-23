@@ -16489,6 +16489,61 @@ Long dis_ESC_0F3A__SupSSE3 ( Bool* decode_OK,
 /*---                                                      ---*/
 /*------------------------------------------------------------*/
 
+static IRTemp math_INSERTQ_128 ( IRTemp vecE, IRTemp vecG, IRTemp lit1, IRTemp lit2 )
+{
+   IRTemp sourceMask = newTemp(Ity_I64);
+   assign(sourceMask, IRExpr_ITE(binop(Iop_CmpEQ8, mkexpr(lit1), mkU8(0)),
+              mkU64(~0ULL),
+              binop(Iop_Sub64, binop(Iop_Shl64, mkU64(1), mkexpr(lit1)), mkU64(1))));
+
+
+   IRTemp invDestinationMask = newTemp(Ity_I64);
+   assign(invDestinationMask, unop(Iop_Not64, binop(Iop_Shl64, mkexpr(sourceMask), mkexpr(lit2))));
+
+
+   IRExpr* lowerBitsExpr =
+      binop(Iop_Shl64,
+      binop(Iop_And64,
+            unop(Iop_V128to64, mkexpr(vecE)),
+            mkexpr(sourceMask)),
+         mkexpr(lit2));
+
+   IRTemp lowerBits = newTemp(Ity_I64);
+   assign(lowerBits, lowerBitsExpr);
+
+   IRExpr* resultingBitsExpr = binop(Iop_Or64, binop(Iop_And64,
+      unop(Iop_V128to64, mkexpr(vecG)), mkexpr(invDestinationMask)), mkexpr(lowerBits));
+
+   IRTemp resultingBits = newTemp(Ity_I64);
+   assign(resultingBits, resultingBitsExpr);
+
+   IRTemp res = newTemp(Ity_V128);
+   assign(res,  binop(Iop_64HLtoV128, mkU64(0),  mkexpr(resultingBits)));
+   return res;
+}
+
+static IRTemp math_EXTRQ_128 ( IRTemp vecE, IRTemp lit1, IRTemp lit2 )
+{
+   IRTemp sourceMask = newTemp(Ity_I64);
+   assign(sourceMask, IRExpr_ITE(binop(Iop_CmpEQ8, mkexpr(lit1), mkU8(0)),
+              mkU64(~0ULL),
+              binop(Iop_Sub64, binop(Iop_Shl64, mkU64(1), mkexpr(lit1)), mkU64(1))));
+
+   IRExpr* lowerBitsExpr =
+      binop(Iop_And64,
+         binop(Iop_Shr64,
+            unop(Iop_V128to64, mkexpr(vecE)),
+            mkexpr(lit2)),
+         mkexpr(sourceMask));
+
+   IRTemp lowerBits = newTemp(Ity_I64);
+   assign(lowerBits, lowerBitsExpr);
+
+   IRTemp res = newTemp(Ity_V128);
+   assign(res,  binop(Iop_64HLtoV128, mkU64(0),  mkexpr(lowerBits)));
+   return res;
+}
+
 __attribute__((noinline))
 static
 Long dis_ESC_0F__SSE4 ( Bool* decode_OK,
@@ -16672,7 +16727,145 @@ Long dis_ESC_0F__SSE4 ( Bool* decode_OK,
          goto decode_success;
       }
       break;
+   case 0x78:
+      /* F2 0F 78 -- INSERTQ xmm1 xmm2 imm8 imm8 (sse4a) */
+      if ((pfx & PFX_F2) && 0 != (archinfo->hwcaps & VEX_HWCAPS_AMD64_SSE4A)) {
+         modrm = getUChar(delta++);
+         UInt lit1 = getUChar(delta++) & 0x3F;
+         UInt lit2 = getUChar(delta++) & 0x3F;
 
+         IRTemp vecE = newTemp(Ity_V128);
+         IRTemp vecG = newTemp(Ity_V128);
+         IRTemp lit1Temp = newTemp(Ity_I8);
+         IRTemp lit2Temp = newTemp(Ity_I8);
+
+         assign(lit1Temp, mkU8(lit1));
+         assign(lit2Temp, mkU8(lit2));
+
+
+         if (epartIsReg(modrm) ) {
+            assign(vecE, getXMMReg(eregOfRexRM(pfx, modrm)));
+            assign(vecG, getXMMReg(gregOfRexRM(pfx, modrm)));
+            DIP( "insertq %s,%s,%u,%u\n",
+                  nameXMMReg( eregOfRexRM(pfx, modrm) ), nameXMMReg( gregOfRexRM(pfx, modrm) ), lit1, lit2 );
+
+            IRTemp res = math_INSERTQ_128( vecE, vecG, lit1Temp, lit2Temp );
+
+            putXMMReg(gregOfRexRM(pfx, modrm), mkexpr(res));
+            goto decode_success;
+         }
+      }
+      // 66 0F 78 -- EXTRQ xmm1 imm8 imm8 (sse4a)
+      else if ((pfx & PFX_66) && 0 != (archinfo->hwcaps & VEX_HWCAPS_AMD64_SSE4A)) {
+         modrm = getUChar(delta++);
+         UInt lit1 = getUChar(delta++) & 0x3F;
+         UInt lit2 = getUChar(delta++) & 0x3F;
+
+         IRTemp vecE = newTemp(Ity_V128);
+         IRTemp lit1Temp = newTemp(Ity_I8);
+         IRTemp lit2Temp = newTemp(Ity_I8);
+
+         assign(lit1Temp, mkU8(lit1));
+         assign(lit2Temp, mkU8(lit2));
+
+         if (epartIsReg(modrm) ) {
+            assign(vecE, getXMMReg(eregOfRexRM(pfx, modrm)));
+            DIP( "extrq %s,%u,%u\n",
+                  nameXMMReg( eregOfRexRM(pfx, modrm) ), lit1, lit2 );
+
+            IRTemp res = math_EXTRQ_128( vecE, lit1Temp, lit2Temp );
+
+            putXMMReg(eregOfRexRM(pfx, modrm), mkexpr(res));
+            goto decode_success;
+         }
+      }
+      break;
+   case 0x79:
+      /* F2 0F 79 -- INSERTQ xmm1 xmm2 (sse4a) */
+      if ((pfx & PFX_F2) && 0 != (archinfo->hwcaps & VEX_HWCAPS_AMD64_SSE4A)) {
+         modrm = getUChar(delta++);
+
+         IRTemp vecE = newTemp(Ity_V128);
+         IRTemp vecG = newTemp(Ity_V128);
+         IRTemp lit1Temp = newTemp(Ity_I8);
+         IRTemp lit2Temp = newTemp(Ity_I8);
+
+
+         if (epartIsReg(modrm) ) {
+            assign(vecE, getXMMReg(eregOfRexRM(pfx, modrm)));
+            assign(vecG, getXMMReg(gregOfRexRM(pfx, modrm)));
+            DIP( "insertq %s,%s\n",
+                  nameXMMReg( eregOfRexRM(pfx, modrm) ), nameXMMReg( gregOfRexRM(pfx, modrm) ));
+
+            IRTemp literals = newTemp(Ity_I16);
+            assign(literals, unop(Iop_64to16, binop(Iop_And64, unop(Iop_V128HIto64, mkexpr(vecE)), mkU64(0x3F3F))));
+            assign(lit1Temp, unop(Iop_16to8, mkexpr(literals)));
+            assign(lit2Temp, unop(Iop_16HIto8, mkexpr(literals)));
+
+            IRTemp res = math_INSERTQ_128( vecE, vecG, lit1Temp, lit2Temp );
+
+            putXMMReg(gregOfRexRM(pfx, modrm), mkexpr(res));
+            goto decode_success;
+         }
+      }
+      // 66 0F 79 -- EXTRQ xmm1 xmm2 (sse4a)
+      else if ((pfx & PFX_66) && 0 != (archinfo->hwcaps & VEX_HWCAPS_AMD64_SSE4A)) {
+         modrm = getUChar(delta++);
+
+         IRTemp vecE = newTemp(Ity_V128);
+         IRTemp vecG = newTemp(Ity_V128);
+         IRTemp lit1Temp = newTemp(Ity_I8);
+         IRTemp lit2Temp = newTemp(Ity_I8);
+
+         if (epartIsReg(modrm) ) {
+            assign(vecE, getXMMReg(eregOfRexRM(pfx, modrm)));
+            assign(vecG, getXMMReg(gregOfRexRM(pfx, modrm)));
+
+            DIP( "insertq %s,%s\n",
+                  nameXMMReg( eregOfRexRM(pfx, modrm) ), nameXMMReg( gregOfRexRM(pfx, modrm) ));
+
+            IRTemp literals = newTemp(Ity_I16);
+            assign(literals, unop(Iop_64to16, binop(Iop_And64, unop(Iop_V128to64, mkexpr(vecE)), mkU64(0x3F3F))));
+            assign(lit1Temp, unop(Iop_16to8, mkexpr(literals)));
+            assign(lit2Temp, unop(Iop_16HIto8, mkexpr(literals)));
+
+            IRTemp res = math_EXTRQ_128( vecG, lit1Temp, lit2Temp );
+
+            putXMMReg(gregOfRexRM(pfx, modrm), mkexpr(res));
+            goto decode_success;
+         }
+      }
+      break;
+   case 0x2B:
+      /* F2 0F 2B -- MOVNTSD mem64 xmm (sse4a) */
+      /* F3 0F 2B -- MOVNTSS mem32 xmm (sse4a) */
+      if (0 != (archinfo->hwcaps & VEX_HWCAPS_AMD64_SSE4A)) {
+         modrm = getUChar(delta);
+
+         if (epartIsReg(modrm)) {
+            // MOVNTSD always should have a memory operand
+            break;
+         }
+         addr = disAMode( &alen, vbi, pfx, delta, dis_buf, 0 );
+         delta += alen;
+
+         IRTemp vecG = newTemp(Ity_V128);
+         assign(vecG, getXMMReg(gregOfRexRM(pfx, modrm)));
+         
+         if (pfx & PFX_F3) {
+            storeLE(mkexpr(addr), unop(Iop_V128to32, mkexpr(vecG)));
+            DIP("movntss %s, %s\n", nameXMMReg(gregOfRexRM(pfx, modrm)), dis_buf);
+         } else if (pfx & PFX_F2) {
+            storeLE(mkexpr(addr), unop(Iop_V128to64, mkexpr(vecG)));
+            DIP("movntsd %s, %s\n", nameXMMReg(gregOfRexRM(pfx, modrm)), dis_buf);
+         } else {
+            // Instruction should have either F2 or F3 prefix
+            break;
+         }
+
+         goto decode_success;
+      }
+      break;
    default:
       break;
 

@@ -3352,6 +3352,37 @@ AC_MSG_RESULT([no])
 
 AM_CONDITIONAL(BUILD_SSE42_TESTS, test x$ac_have_as_sse42 = xyes)
 
+# does the x86/amd64 assembler understand SSE 4a instructions?
+# Note, this doesn't generate a C-level symbol.  It generates a
+# automake-level symbol (BUILD_SSE4a_TESTS), used in test Makefile.am's
+AC_MSG_CHECKING([if x86/amd64 assembler speaks SSE4a])
+
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[
+  do {
+    unsigned long long data1[2] = {0x00000000000000AA, 0x1234567890ABCDEF};
+    unsigned long long data2[2] = {0xFFFFFFFFFFFFFFFF, 0x1234567890ABCDEF};
+
+    __asm__ __volatile__(
+        "movdqu %0, %%xmm0\n"
+        "movdqu %1, %%xmm1\n"
+        "insertq %3, %2, %%xmm1, %%xmm0\n"
+        "movdqu %%xmm0, %0\n"
+        "movdqu %%xmm1, %1\n"
+        : "=m" (*data2), "=m" (*data1) : "i" (0), "i" (0) : "cc", "memory", "xmm0", "xmm1");
+    if (data2[0] != 0xFFFFFFFFAAFFFFFF) {
+        abort();
+    };
+   } while (0)
+]])], [
+ac_have_as_sse4a=yes
+AC_MSG_RESULT([yes])
+], [
+ac_have_as_sse4a=no
+AC_MSG_RESULT([no])
+])
+
+AM_CONDITIONAL(BUILD_SSE4a_TESTS, test x$ac_have_as_sse4a = xyes)
+
 
 # does the x86/amd64 assembler understand AVX instructions?
 # Note, this doesn't generate a C-level symbol.  It generates a

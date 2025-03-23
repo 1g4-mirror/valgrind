@@ -96,13 +96,15 @@ EXTRA_DIST = \
 	ssse3_misaligned.vgtest \
 	sse4-64.stderr.exp sse4-64.stdout.exp sse4-64.vgtest \
 	sse4-64.stdout.exp-older-glibc \
+	sse4a-64.stderr.exp sse4a-64.stdout.exp sse4a-64.vgtest \
 	slahf-amd64.stderr.exp slahf-amd64.stdout.exp \
 	slahf-amd64.vgtest \
 	tm1.vgtest tm1.stderr.exp tm1.stdout.exp \
 	x87trigOOR.vgtest x87trigOOR.stderr.exp x87trigOOR.stdout.exp \
 	xacq_xrel.stderr.exp xacq_xrel.stdout.exp xacq_xrel.vgtest \
 	xadd.stderr.exp xadd.stdout.exp xadd.vgtest \
-	sse4-64.stdout.exp.freebsd sse4-64.stdout.exp-freebsd-clang
+	sse4-64.stdout.exp.freebsd sse4-64.stdout.exp-freebsd-clang \
+	insertq.stderr.exp insertq.stdout.exp insertq.vgtest
 
 check_PROGRAMS = \
 	allexec \
@@ -157,6 +159,9 @@ if BUILD_SSE42_TESTS
  check_PROGRAMS += \
 	pcmpstr64 pcmpxstrx64 sse4-64 crc32 aes \
 	pcmpstr64w pcmpxstrx64w
+endif
+if BUILD_SSE4a_TESTS
+  check_PROGRAMS += sse4a-64 insertq
 endif
 if BUILD_TSX_TESTS
   check_PROGRAMS += tm1 xacq_xrel

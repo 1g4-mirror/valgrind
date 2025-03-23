@@ -1020,7 +1020,7 @@ Bool VG_(machine_get_hwcaps)( void )
    }
 
 #elif defined(VGA_amd64)
-   { Bool have_sse3, have_ssse3, have_cx8, have_cx16;
+   { Bool have_sse3, have_sse4a, have_ssse3, have_cx8, have_cx16;
      Bool have_lzcnt, have_avx, have_bmi, have_avx2;
      Bool have_fma3, have_fma4;
      Bool have_rdtscp, have_rdrand, have_f16c, have_rdseed;
@@ -1141,6 +1141,13 @@ Bool VG_(machine_get_hwcaps)( void )
         have_rdseed = (ebx & (1<<18)) != 0; /* True => have RDSEED insns */
      }
 
+     have_sse4a = False;
+     if (max_extended >= 0x80000001) {
+        VG_(cpuid)(0x80000001, 0, &eax, &ebx, &ecx, &edx);
+        have_sse4a = (ecx & (1<<6)) != 0; /* True => have LZCNT */
+     }
+
+
      /* Sanity check for RDRAND and F16C.  These don't actually *need* AVX, but
         it's convenient to restrict them to the AVX case since the simulated
         CPUID we'll offer them on has AVX as a base. */
@@ -1164,7 +1171,8 @@ Bool VG_(machine_get_hwcaps)( void )
                  | (have_rdrand ? VEX_HWCAPS_AMD64_RDRAND : 0)
                  | (have_rdseed ? VEX_HWCAPS_AMD64_RDSEED : 0)
                  | (have_fma3   ? VEX_HWCAPS_AMD64_FMA3   : 0)
-                 | (have_fma4   ? VEX_HWCAPS_AMD64_FMA4   : 0);
+                 | (have_fma4   ? VEX_HWCAPS_AMD64_FMA4   : 0)
+                 | (have_sse4a ? VEX_HWCAPS_AMD64_SSE4A  : 0);
 
      VG_(machine_get_cache_info)(&vai);
 

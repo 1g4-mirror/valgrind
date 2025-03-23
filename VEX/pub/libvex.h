@@ -104,6 +104,7 @@ typedef
 #define VEX_HWCAPS_AMD64_RDSEED (1<<15) /* RDSEED instructions */
 #define VEX_HWCAPS_AMD64_FMA3   (1<<16) /* FMA3 instructions */
 #define VEX_HWCAPS_AMD64_FMA4   (1<<17) /* FMA4 instructions */
+#define VEX_HWCAPS_AMD64_SSE4A  (1<<18) /* SSE4A instructions */
 
 /* ppc32: baseline capability is integer only */
 #define VEX_HWCAPS_PPC32_F     (1<<8)  /* basic (non-optional) FP */
